@@ -1,0 +1,162 @@
+
+#making an interface for the BK precision 
+import tkinter as tk
+from tkinter import ttk
+import pyvisa
+import time 
+
+multi = "USB0::0xFFFF::0x9200::602203010717010031::INSTR"
+rm = pyvisa.ResourceManager()
+#print(f"the resources connected are:{rm.list_resources()}")
+def connect():
+    global mm
+    try:    
+        mm = rm.open_resource(multi)
+        connection_canvas.itemconfig(connection_light, fill = "blue")
+        return True
+    except: 
+        connection_canvas.itemconfig(connection_light, fill = "red")
+        return False
+def voltage():
+    mm = rm.open_resource(multi)
+    vset = float(v_input.get())
+    if 0 < vset < 60:
+        try:
+            mm.write(f"VOLT {vset}V")
+            voltage_canvas.itemconfig(v_light, fill = "green")
+            #vmeas = mm.query_ascii_values("MEAS:VOLT?")
+            #cmeas = mm.query_ascii_values("MEAS:CURR?")
+            v_label.config(text = f"Voltage has been set to {vset}")
+        
+        except: 
+           voltage_canvas.itemconfig(v_light, fill = "red")
+    else: 
+        voltage_canvas.itemconfig(v_light, fill = "orange")
+        v_label.config(text = "Voltage has been set out of range")
+
+def current():
+    mm = rm.open_resource(multi)
+    cset = float(c_input.get())
+    if 0 < cset < 25:
+        try:
+            mm.write(f"*RST;CURR {cset}A")
+            current_canvas.itemconfig(c_light, fill = "green")
+            #cmeas = mm.query_ascii_values("MEAS:CURR?")
+            c_label.config(text = f"Current has been set to {cset}")
+            connection_canvas.itemconfig(connection_light, fill = "green")
+        except: 
+            current_canvas.itemconfig(c_light, fill = "red")
+    else: 
+        current_canvas.itemconfig(c_light, fill = "orange")
+        c_label.config(text = "Current has been set out of range")
+
+def output_on():
+    try:
+        mm = rm.open_resource(multi)
+        mm.write("OUTP ON")
+        output_canvas.itemconfig(output_light, fill = "green")
+        return True
+    except: 
+        output_off()
+        return False
+def output_off():
+    try:
+        mm = rm.open_resource(multi)
+        mm.write("OUTP OFF")
+        output_canvas.itemconfig(output_light, fill = "red")
+        return True
+    except: 
+        output_on()
+        return False
+def c_measurement():
+    mm = rm.open_resource(multi)
+    return mm.query_ascii_values("MEAS:CURR?")[0]
+    
+def v_measurement():
+    mm = rm.open_resource(multi)
+    return mm.query_ascii_values("MEAS:VOLT?")[0]
+    
+def update_meas():
+    vmeas = v_measurement()
+    cmeas = c_measurement()
+    volt_label.config(text = f" Measured Voltage = {vmeas}")
+    current_label.config(text = f" Measured Current = {cmeas}")
+    gui.after(5000,update_meas)
+    return True
+
+    
+############   MAKING THE GUI    ####################################
+gui = tk.Tk()
+gui.title("Multimeter Operation")
+#Making the connection liight and button
+connection_button = ttk.Button(gui, text = "Connect", command = connect)
+connection_button.grid(row = 1, column = 2, columnspan = 2, pady = 10)
+
+connection_canvas = tk.Canvas(gui, width=26, height=26)
+connection_canvas.grid(row = 1, column = 5)
+
+connection_light = connection_canvas.create_oval(2, 2, 25, 25, fill = "gray")
+
+#Making the layout for the voltage setting button
+voltage_canvas =tk.Canvas(gui, width = 26, height = 26)
+voltage_canvas.grid(row = 3, column = 5)
+
+v_light = voltage_canvas.create_oval(2, 2, 25, 25, fill = "gray")
+v_button = ttk.Button(gui, text = "Enter Voltage", command = voltage)
+v_button.grid(row = 3, column = 3, columnspan=1, pady = 10)
+#Making an input for the voltage level
+v_input = ttk.Entry(gui)
+v_input.grid(row = 3, column = 1, columnspan=2, pady = 10)
+#making a label for the voltage output
+v_label = ttk.Label(gui, text = " ")
+v_label.grid(row = 3, column= 6, columnspan=2, pady = 10)
+
+c_input = ttk.Entry(gui)
+c_input.grid(row = 2, column = 1, columnspan=2, pady = 10)
+#making a label for the voltage output
+c_label = ttk.Label(gui, text = " ")
+c_label.grid(row = 2, column= 6, columnspan=1, pady = 10)
+
+current_canvas =tk.Canvas(gui, width = 26, height = 26)
+current_canvas.grid(row = 2, column = 5)
+
+c_light = current_canvas.create_oval(2, 2, 25, 25, fill = "gray")
+c_button = ttk.Button(gui, text = "Enter Current", command = current)
+c_button.grid(row = 2, column = 3, columnspan=1, pady = 10)
+
+########### MAKING OUTPUT OFF and ON BUTTONs and a light ###########################
+outp_off_button = ttk.Button(gui, text = "OUTPUT OFF", command = output_off)
+outp_off_button.grid(row = 4, column = 5, columnspan=2, pady = 10)
+
+outp_on_button = ttk.Button(gui, text = "OUTPUT ON", command = output_on)
+outp_on_button.grid(row = 4, column = 1, columnspan=2, pady = 10)
+
+output_label = ttk.Label(gui, text = "OUTPUT Status:")
+output_label.grid(row = 5, column = 1, columnspan=2, pady = 10)
+
+output_canvas = tk.Canvas(gui, width = 30, height = 30)
+output_canvas.grid(row = 5, column = 4)
+
+output_light = output_canvas.create_oval(2, 2, 29, 29, fill = "gray")
+
+######### Displaying the measured current and voltage  ######################
+volt_label = ttk.Label(gui, text = " N/A ")
+volt_label.grid(row = 5, column = 6, columnspan=2, pady = 10)
+
+current_label = ttk.Label(gui, text = " N/A")
+current_label.grid(row = 6, column = 6, columnspan=2, pady = 10)
+
+meas_button = tk.Button(gui, text = "Measure", command = update_meas)
+meas_button.grid(row = 7, column=2, columnspan=2, pady = 10)
+
+#nomeas_button = tk.Button(gui, text = "Stop Measuring", command = stop_meas)
+#nomeas_button.grid(row = 7, column=4, columnspan=2, pady = 10)   
+############  Making a label for the limitations of the Power Supply  #####################
+ps_label = ttk.Label(gui, text = "60V 25A Power Supply")
+ps_label.grid(row = 0, column = 2, columnspan=2, pady = 10)
+
+gui.mainloop()
+
+
+
+
